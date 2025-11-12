@@ -43,7 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     #APPS CRIADOS
     'apps.irradiacao',
-    #'apps.instEletricas',
+    'apps.instEletricas',
     #'apps.solar',
     #'apps.cliente',
 

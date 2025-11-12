@@ -3,4 +3,5 @@ from django.apps import AppConfig
 
 class InsteletricasConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'instEletricas'
+    name = 'apps.instEletricas'
+    verbose_name = 'Instalações Elétricas'
