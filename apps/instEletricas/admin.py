@@ -1,5 +1,5 @@
 from django.contrib import admin
-from apps.instEletricas.models import Demandas,Local,Ambientes,CargasTUG,CargasILUM,CargasTUE,Circuitos
+from apps.instEletricas.models import Condutores,Demandas,Local,Ambientes,CargasTUG,CargasILUM,CargasTUE,Circuitos
 
 class AmbientesInline(admin.TabularInline):
     model = Ambientes
@@ -278,6 +278,46 @@ class DemandasAdmin(admin.ModelAdmin):
         disj,ckt = obj.padrao_entrada
         return f'{disj} A - {ckt}'
     format_padrao.short_description = 'Disjuntor Padrão de Entrada'
+
+@admin.register(Condutores)
+class CondutoresAdmin(admin.ModelAdmin):
+    list_display = ('id','cliente','local','ckt','format_corrente','format_condutor',)
+    list_display_links = ('id','local','ckt','cliente',)
+    list_per_page = 20
+    search_fields = ('id','local','ckt','cliente',)
+    readonly_fields = ['format_corrente','format_condutor','cliente','corrente_ckt']
+    fieldsets=(
+        ('Condutores',{
+            'fields':(
+                'cliente',
+                'local',
+                ('ckt','n_ckts',),
+                ('temp','mat_isol',),
+                'corrente_ckt',
+            ),
+        }),
+        ('Total',{
+            'fields':(
+                'format_corrente',
+                'format_condutor',
+            ),
+        }),
+    )
+
+    def format_corrente(self,obj):
+        return f'{obj.corrente_pojetada:.2f} A'
+    format_corrente.short_description = 'Corrente Projetada'
+    def format_condutor(self,obj):
+        bit,corr = obj.condutores_calc
+        return f'{bit} mm² - Corrente Máxima do Condutor: {corr} A'
+    format_condutor.short_description = 'Condutor'
+    def cliente(self,obj):
+        cliente = obj.local.cliente
+        return cliente
+    cliente.short_description = 'Cliente'
+    def corrente_ckt(self,obj):
+        return f'{obj.ckt.corrente_ckt:.2f} A'
+    corrente_ckt.short_description = 'Corrente Calculada do Circuito'
 # fieldsets=(
 #     ('Ambiente',{
 #         'fields':(
