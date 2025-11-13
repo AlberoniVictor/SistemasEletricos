@@ -344,7 +344,7 @@ class Circuitos(models.Model):
         else:
             i = 0
         return i
-    
+
 class Demandas(models.Model):
     local = models.ForeignKey(Local,on_delete=models.CASCADE,related_name='demanda_local')
     tue = models.ManyToManyField(CargasTUE, related_name='demanda_tue', blank=True,verbose_name='Cargas TUEs')
@@ -644,7 +644,7 @@ class Condutores(models.Model):
     
 
     @property
-    def corrente_pojetada(self):
+    def corrente_projetada(self):
         indice = min(max(self.n_ckts, 1), 6) - 1
         fator = self.FCNC[indice]
 
@@ -687,12 +687,12 @@ class Condutores(models.Model):
 
         if self.ckt.ckt in ('M','B'):
             for bit,corr in CKT_MONO_BIFASICO:
-                if self.corrente_pojetada < 0.95*corr:
+                if self.corrente_projetada < 0.95*corr:
                     bitola = bit
                     break
         else:
             for bit,corr in CKT_TRIFASICO:
-                if self.corrente_pojetada < 0.95*corr:
+                if self.corrente_projetada < 0.95*corr:
                     bitola = bit
                     break
         return bitola,corr
@@ -700,3 +700,34 @@ class Condutores(models.Model):
     def __str__(self):
         bit, _ = self.condutores_calc
         return f'{self.ckt} - Bitola: {bit} mm²'
+    
+# class Eletrodutos(models.Model):
+
+class Protecao(models.Model):
+    local = models.ForeignKey(Local,on_delete=models.CASCADE,related_name='prot_local',verbose_name='Local')
+    cond = models.ForeignKey(Condutores,verbose_name='Condutores',on_delete=models.CASCADE,related_name='prot_ckt')
+
+    @property
+    def protecao(self):
+        DISJ = [2,4,6,10,16,20,25,32,40,50,63,80,100,125]
+
+        i_ckt = self.cond.ckt.corrente_ckt
+        i_proj = self.cond.corrente_projetada
+        fat_correcao = i_ckt/i_proj
+        bitola, i_cond = self.cond.condutores_calc
+
+        disj = None
+        for i in DISJ:
+            if i >= i_ckt and i <= (i_cond*fat_correcao):
+                disj = i
+                obs = ('Para definir a Curva veja a característica do circuito: \n'
+                    'Puramente resistivo → Curva B, \n'
+                    'Cargas gerais → Curva C, \n'
+                    'Cargas com corrente de partida pesada → Curva D.\n')
+                break
+        if disj is None:
+            disj = 0
+            obs = 'Busque um catálogo específico para correntes superiores a 125 A.'
+        return disj,obs
+
+# Class Equilibrio de Fases

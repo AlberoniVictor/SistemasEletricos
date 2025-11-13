@@ -1,5 +1,5 @@
 from django.contrib import admin
-from apps.instEletricas.models import Condutores,Demandas,Local,Ambientes,CargasTUG,CargasILUM,CargasTUE,Circuitos
+from apps.instEletricas.models import Protecao,Condutores,Demandas,Local,Ambientes,CargasTUG,CargasILUM,CargasTUE,Circuitos
 
 class AmbientesInline(admin.TabularInline):
     model = Ambientes
@@ -305,7 +305,7 @@ class CondutoresAdmin(admin.ModelAdmin):
     )
 
     def format_corrente(self,obj):
-        return f'{obj.corrente_pojetada:.2f} A'
+        return f'{obj.corrente_projetada:.2f} A'
     format_corrente.short_description = 'Corrente Projetada'
     def format_condutor(self,obj):
         bit,corr = obj.condutores_calc
@@ -318,6 +318,52 @@ class CondutoresAdmin(admin.ModelAdmin):
     def corrente_ckt(self,obj):
         return f'{obj.ckt.corrente_ckt:.2f} A'
     corrente_ckt.short_description = 'Corrente Calculada do Circuito'
+
+@admin.register(Protecao)
+class ProtecaoAdmin(admin.ModelAdmin):
+    list_display = ('id','cliente','local','ckt','cond','format_prot','corrente_ckt')
+    list_display_links = ('id','cliente','local','ckt','cond','format_prot','corrente_ckt')
+    list_per_page = 20
+    search_fields = ('id','cliente','local',)
+    readonly_fields = ['cliente','ckt','format_prot','format_curva','corrente_ckt']
+    fieldsets=(
+        ('Proteção',{
+            'fields':(
+                'cliente',
+                ('local',
+                'ckt',
+                'cond',
+                'corrente_ckt',),
+                'format_prot',
+                'format_curva'
+            ),
+        }),
+    )
+
+    def cliente(self,obj):
+        cliente = obj.local.cliente
+        return cliente
+    cliente.short_description = 'Cliente'
+
+    def ckt(self,obj):
+        ckt = obj.cond.ckt
+        return ckt
+    ckt.short_description = 'ckt'
+
+    def format_prot(self,obj):
+        prot,_ = obj.protecao
+        return f'{prot} A'
+    format_prot.short_description = 'Valor do  Disjuntor'
+    def format_curva(self,obj):
+        _,curva = obj.protecao
+        return curva
+    format_curva.short_description = 'OBS.'
+
+    def corrente_ckt(self,obj):
+        i = obj.cond.ckt.corrente_ckt
+        return f'{i:.2f} A'
+    corrente_ckt.short_description = 'Corrente do Circuito'
+
 # fieldsets=(
 #     ('Ambiente',{
 #         'fields':(
