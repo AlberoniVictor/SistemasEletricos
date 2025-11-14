@@ -1,5 +1,5 @@
 from django.contrib import admin
-from apps.instEletricas.models import Protecao,Condutores,Demandas,Local,Ambientes,CargasTUG,CargasILUM,CargasTUE,Circuitos
+from apps.instEletricas.models import EquilibrioFases,Eletrodutos,Protecao,Condutores,Demandas,Local,Ambientes,CargasTUG,CargasILUM,CargasTUE,Circuitos
 
 class AmbientesInline(admin.TabularInline):
     model = Ambientes
@@ -330,9 +330,9 @@ class ProtecaoAdmin(admin.ModelAdmin):
         ('Proteção',{
             'fields':(
                 'cliente',
-                ('local',
+                ('local','cond',),
+                (
                 'ckt',
-                'cond',
                 'corrente_ckt',),
                 'format_prot',
                 'format_curva'
@@ -348,14 +348,14 @@ class ProtecaoAdmin(admin.ModelAdmin):
     def ckt(self,obj):
         ckt = obj.cond.ckt
         return ckt
-    ckt.short_description = 'ckt'
+    ckt.short_description = 'Circuito'
 
     def format_prot(self,obj):
-        prot,_ = obj.protecao
-        return f'{prot} A'
+        prot,_,polos = obj.protecao
+        return f'{prot} A - {polos}'
     format_prot.short_description = 'Valor do  Disjuntor'
     def format_curva(self,obj):
-        _,curva = obj.protecao
+        _,curva,polos = obj.protecao
         return curva
     format_curva.short_description = 'OBS.'
 
@@ -364,10 +364,116 @@ class ProtecaoAdmin(admin.ModelAdmin):
         return f'{i:.2f} A'
     corrente_ckt.short_description = 'Corrente do Circuito'
 
+@admin.register(Eletrodutos)
+class EletrodutosAdmin(admin.ModelAdmin):
+    list_display = ('id','cliente','local','tam_eletroduto','dist','info')
+    list_display_links = ('id','cliente','local','tam_eletroduto','info')
+    list_per_page = 20
+    search_fields = ('id','cliente','local')
+    readonly_fields = ['cliente','tam_eletroduto','cond_eletro']
+    fieldsets=(
+        ('Eletrodutos',{
+            'fields':(
+                'cliente',
+                'local',
+                'info',
+                'dist',
+                'conexoes',
+                'c_conex',
+                'cond',
+                
+            ),
+        }),
+        ('Resultado',{
+            'fields':(
+                'cond_eletro',
+                'tam_eletroduto',
+            ),
+        }),
+    )
+
+    def cliente(self,obj):
+        cliente = obj.local.cliente
+        return cliente
+    cliente.short_description = 'Cliente'
+    def tam_eletroduto(self,obj):
+        eletro,_ = obj.eletroduto
+        return eletro
+    tam_eletroduto.short_description = 'Eletroduto'
+    def cond_eletro(self,obj):
+        _,qnt = obj.eletroduto
+        return qnt
+    cond_eletro.short_description = 'Quantidade de Cabos no Eletroduto'
+
+@admin.register(EquilibrioFases)
+class EquilibrioFasesAdmin(admin.ModelAdmin):
+    list_display = ('id','cliente','local')
+    list_display_links = ('id','cliente','local')
+    list_per_page = 20
+    search_fields = ('id','cliente','local')
+    readonly_fields = ['cliente','total_R','itens_R','total_S','itens_S','total_T','itens_T']
+    fieldsets=(
+        ('Equilibrio de Fases',{
+            'fields':(
+                'cliente',
+                'local',
+                'ckt',
+            ),
+        }),
+        ('Fase R',{
+            'fields':(
+                'total_R',
+                'itens_R',
+            ),
+        }),
+        ('Fase S',{
+            'fields':(
+                'total_S',
+                'itens_S',
+            ),
+        }),
+        ('Fase T',{
+            'fields':(
+                'total_T',
+                'itens_T',
+            ),
+        }),
+        )
+
+    def total_R(self,obj):
+        return f'{obj.equilibrio['R']['total']:.2f} A'
+    total_R.short_description = 'Corrente Fase R'
+    def total_S(self,obj):
+        return f'{obj.equilibrio['S']['total']:.2f} A'
+    total_S.short_description = 'Corrente Fase S'
+    def total_T(self,obj):
+        return f'{obj.equilibrio['T']['total']:.2f} A'
+    total_T.short_description = 'Corrente Fase T'
+
+    def itens_R(self,obj):
+        return "\n".join( f"{ckt}" for ckt in obj.equilibrio['R']['itens'])
+    itens_R.short_description = 'Circuitos na Fase R'
+    def itens_S(self,obj):
+        return '\n'.join(f'{ckt}' for ckt in obj.equilibrio['S']['itens'])
+    itens_S.short_description = 'Circuitos na Fase S'
+    def itens_T(self,obj):
+        return '\n'.join(f'{ckt}' for ckt in obj.equilibrio['T']['itens'])
+    itens_T.short_description = 'Circuitos na Fase T'
+
+    def cliente(self,obj):
+        cliente = obj.local.cliente
+        return cliente
+    cliente.short_description = 'Cliente'
+
 # fieldsets=(
-#     ('Ambiente',{
+#     ('titulo1',{
 #         'fields':(
 
 #         ),
 #     }),
+#    ('titulo2',{
+#                'fields':(
+#
+#                ),
+#            }),
 # )

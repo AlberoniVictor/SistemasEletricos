@@ -226,7 +226,7 @@ class Circuitos(models.Model):
     tug = models.ManyToManyField(CargasTUG,related_name='ckt_tug',blank=True,verbose_name='Cargas TUGs')
     tue = models.ManyToManyField(CargasTUE,related_name='ckt_tue',blank=True,verbose_name='Cargas TUEs')
     ilum = models.ManyToManyField(CargasILUM,related_name='ckt_ilum',blank=True,verbose_name='Cargas de Iluminação')
-    nome = models.CharField(verbose_name='Identificação do Circuito',max_length=20,default="")
+    nome = models.CharField(verbose_name='Identificação do Circuito',max_length=50,default="")
     ckt = models.CharField(verbose_name='Tipo do Circuito',choices=CKT,default='M',max_length=1)
 
     class Meta:
@@ -701,11 +701,75 @@ class Condutores(models.Model):
         bit, _ = self.condutores_calc
         return f'{self.ckt} - Bitola: {bit} mm²'
     
-# class Eletrodutos(models.Model):
+class Eletrodutos(models.Model):
+    cond = models.ManyToManyField(Condutores,verbose_name='Condutores',blank=True,related_name='eletro_ckt')
+    local = models.ForeignKey(Local,on_delete=models.CASCADE,related_name='eletro_local',verbose_name='Local')
+    info = models.CharField(verbose_name='Trecho do Eletroduto',max_length=100)
+    conexoes = models.IntegerField(default=0,blank=True,null=True,verbose_name='Quantidade de Conexões para o eletroduto')
+    c_conex = models.CharField(verbose_name='Caracteristicas das conexões',max_length=100,blank=True,null=True)
+    dist = models.IntegerField(default=0,blank=True,null=True,verbose_name='Comprimento do Trecho')
+    
+    ELETRODUTO = (
+        ('3/8"',16,12.8,514.7),
+        ('1/2"',20,16.4,844.94),
+        ('3/4"',25,21.3,1425.27),
+        ('1"',32,27.5,2375.76),
+        ('1 1/4"',40,36.1,4094.03),
+        ('1 1/2"', 50,41.4,5384.41),
+        ('2"',60,52.8,8758.00),
+        )
+    
+    CONDUTOR = (
+        (1.5,3.0,7.07),
+        (2.5,3.7,10.75),
+        (4,4.2,13.85),
+        (6,4.6,16.62),
+        (10,5.9,27.34),
+        (16,6.9,37.39),
+        (25,8.5,56.75),
+        )
+
+    def n_cond(self):
+        n_cond=0
+        a_ocup = 0
+        for ckt in self.cond.all():
+            bitola,_ = ckt.condutores_calc
+            for cond,d_cond,a_cond in self.CONDUTOR:
+                if bitola == cond:
+                    d_cond = d_cond
+                    a_cond = a_cond
+                    break
+            if ckt.ckt == 'T':
+                qnt = 4
+            else:
+                qnt = 3
+            n_cond += qnt
+            a_ocup += qnt*a_cond
+        tot_cond = n_cond
+        a_total = a_ocup
+        return a_total,tot_cond
+    
+    @property
+    def eletroduto(self):
+        a_cond,total_cond = self.n_cond()
+        for nome,_,_,area in self.ELETRODUTO:
+            if a_cond <= (area*0.40):
+                nome = nome
+                break
+        return nome,total_cond
 
 class Protecao(models.Model):
     local = models.ForeignKey(Local,on_delete=models.CASCADE,related_name='prot_local',verbose_name='Local')
     cond = models.ForeignKey(Condutores,verbose_name='Condutores',on_delete=models.CASCADE,related_name='prot_ckt')
+
+    class Meta:
+        verbose_name = 'Proteção'
+        verbose_name_plural = "Proteções"
+
+    def __str__(self):
+        disj, _,polos = self.protecao
+        cliente = self.local.cliente
+        return f'{cliente} - {self.cond}- Disjuntor {disj} A - {polos}'
 
     @property
     def protecao(self):
@@ -715,9 +779,17 @@ class Protecao(models.Model):
         i_proj = self.cond.corrente_projetada
         fat_correcao = i_ckt/i_proj
         bitola, i_cond = self.cond.condutores_calc
-
+        n = 0
         disj = None
+        if self.cond.ckt.ckt == 'M':
+            polos = 'Monopolar'
+        elif self.cond.ckt.ckt == 'B':
+            polos = 'Bipolar'
+        else:
+            polos = 'Tripolar'
+
         for i in DISJ:
+            n +=1
             if i >= i_ckt and i <= (i_cond*fat_correcao):
                 disj = i
                 obs = ('Para definir a Curva veja a característica do circuito: \n'
@@ -725,9 +797,51 @@ class Protecao(models.Model):
                     'Cargas gerais → Curva C, \n'
                     'Cargas com corrente de partida pesada → Curva D.\n')
                 break
+            elif i >= i_ckt and i >= (i_cond*fat_correcao):
+                disj = '-'
+                disj_a = DISJ[n]
+                obs = (f'Para as condições atuais, não foi possivel garantir a operação correta do disjuntor de {i} A.\n'
+                f'Estude alterar a rota do Circuito, ou a sua bitola para um valor acima.\n'
+                f'Bitola Atual: {bitola} mm²\n'
+                f'Corrente Máxima com Fator de Correção: {i_cond*fat_correcao} A\n'
+                f'Disjuntor a cima: {disj_a} A\n'
+                f'Fator de Correção: {fat_correcao}'
+                )
+                break
+
         if disj is None:
             disj = 0
             obs = 'Busque um catálogo específico para correntes superiores a 125 A.'
-        return disj,obs
+        return disj,obs,polos
 
-# Class Equilibrio de Fases
+class EquilibrioFases(models.Model):
+    local = models.ForeignKey(Local,on_delete=models.CASCADE,related_name='EqFase_local',verbose_name='Local')
+    ckt = models.ManyToManyField(Circuitos,verbose_name='Circuito',related_name='EqFase_ckt',blank=True)
+
+    @property
+    def equilibrio(self):
+        FASES = {
+            'R':{'total':0,'itens':[]},
+            'S':{'total':0,'itens':[]},
+            'T':{'total':0,'itens':[]},
+        }
+        for ckt_ind in sorted(self.ckt.all(), key=lambda c: c.corrente_ckt, reverse=True):
+            I = ckt_ind.corrente_ckt
+            P = ckt_ind.ckt
+            nome_ckt = ckt_ind.nome
+            if P == 'T':
+                parte = I/3
+                for fase in FASES:
+                    FASES[fase]['total'] += parte
+                    FASES[fase]['itens'].append(nome_ckt)
+            elif P == 'B':
+                parte = I/2
+                ordenados = sorted(FASES.items(),key=lambda x: x[1]['total'])
+                for nome, grupo in ordenados[:2]:
+                    grupo['total'] += parte
+                    grupo['itens'].append(nome_ckt)
+            else:
+                menor_nome,menor = min(FASES.items(), key=lambda x: x[1]['total'])
+                menor['total']+= I
+                menor['itens'].append(nome_ckt)
+        return FASES
