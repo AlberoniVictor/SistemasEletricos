@@ -45,7 +45,7 @@ INSTALLED_APPS = [
     'apps.irradiacao',
     'apps.instEletricas',
     #'apps.solar',
-    #'apps.cliente',
+    'apps.cliente',
 
     #APPS INSTALADOS
     'corsheaders',

@@ -1,5 +1,6 @@
 from django.db import models
 import math
+from apps.cliente.models import Cliente
 
 class Local(models.Model):
     TENSAO = (
@@ -7,14 +8,14 @@ class Local(models.Model):
         ("2","220/380 V"),
     )
 
-    cliente = models.CharField(verbose_name='Cliente',max_length=100)
+    cliente = models.ForeignKey(Cliente,on_delete=models.CASCADE,verbose_name='Cliente',related_name='cliente_local')
     local = models.CharField(verbose_name='Identificação do local',max_length=100)
     cep = models.CharField(max_length=8,blank=False,null=False,verbose_name='CEP',default='-')
-    logradouro = models.CharField(max_length=100,blank=True,null=True,verbose_name='Logradouro')
-    numero = models.CharField(max_length=100,blank=True,null=True,verbose_name='Numero')
-    bairro = models.CharField(max_length=100,blank=True,null=True,verbose_name='Bairro')
-    cidade = models.CharField(max_length=100,blank=True,null=True,verbose_name='Cidade')
-    uf = models.CharField(max_length=2,blank=True,null=True,verbose_name='Estado')
+    logradouro = models.CharField(max_length=100,blank=False,null=False,verbose_name='Logradouro')
+    numero = models.CharField(max_length=100,blank=False,null=False,verbose_name='Numero')
+    bairro = models.CharField(max_length=100,blank=False,null=False,verbose_name='Bairro')
+    cidade = models.CharField(max_length=100,blank=False,null=False,verbose_name='Cidade')
+    uf = models.CharField(max_length=2,blank=False,null=False,verbose_name='Estado')
     rede = models.CharField(verbose_name='Alimentação Concessionária',choices=TENSAO,default='1',max_length=1)
 
     class Meta:
@@ -40,9 +41,9 @@ class Ambientes(models.Model):
     t_comodo =  models.CharField(verbose_name='Tipo de Ambiente',choices=COMODOS,default='S',max_length=1)
     perimetro = models.FloatField(verbose_name='Perimetro do Ambiente',blank=False,null=False,)
     area = models.FloatField(verbose_name='Área do Ambiente',blank=False,null=False,)
-    tug = models.IntegerField(default=0,verbose_name='Qnt. TUGs Propostas',blank=True,null=True)
-    tue = models.IntegerField(default=0,verbose_name='Qnt. TUEs Propostas',blank=True,null=True)
-    iluminacao = models.IntegerField(default=0,verbose_name='Pontos de Iluminação Propostas',blank=True,null=True)
+    tug = models.IntegerField(default=0,verbose_name='Qnt. TUGs Propostas',blank=False,null=False)
+    tue = models.IntegerField(default=0,verbose_name='Qnt. TUEs Propostas',blank=False,null=False)
+    iluminacao = models.IntegerField(default=0,verbose_name='Pontos de Iluminação Propostas',blank=False,null=False)
     class Meta:
         verbose_name = 'Ambiente'
         verbose_name_plural = 'Ambientes'
@@ -70,7 +71,7 @@ class CargasTUG(models.Model):
         elif self.comodo.t_comodo in ('Q','S'):
             tug = math.ceil(self.comodo.perimetro/5)
         else:
-            if self.area <= 6:
+            if self.comodo.area <= 6:
                 tug = 1
                 # obs.: 'Se a area Menor ou Igual a 2.25, será aceito um ponto de tomada exteno a dependencia, no máximo a 0,80 m da porta de acesso'
             else:
