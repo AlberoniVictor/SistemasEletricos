@@ -3,6 +3,10 @@ import pandas as pd
 import numpy as np
 import os
 
+import requests
+from django.views.decorators.http import require_GET
+from django.http import JsonResponse
+
 # Caminho absoluto do CSV
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CSV_PATH = os.path.join(BASE_DIR, "global_horizontal_means.csv")
@@ -41,3 +45,93 @@ def buscar_irradiacao(request):
 
     resultado = irradiacao_mais_proxima(lat, lon)
     return JsonResponse(resultado, json_dumps_params={'ensure_ascii': False})
+
+
+# ==========================
+# 1) Buscar endereço por CEP
+# ==========================
+
+def buscar_endereco_por_cep(cep: str):
+    url = f"https://viacep.com.br/ws/{cep}/json/"
+    r = requests.get(url, timeout=5)
+
+    if r.status_code != 200:
+        return None
+    
+    data = r.json()
+
+    if "erro" in data:
+        return None
+    
+    return data  # logradouro, bairro, localidade, uf...
+
+
+# ==========================
+# 2) Geocoding (endereço → coordenadas LAT/LON)
+# ==========================
+
+def geocodificar_endereco(endereco: str):
+    url = "https://nominatim.openstreetmap.org/search"
+    params = {
+        "q": endereco,
+        "format": "json",
+        "limit": 1,
+    }
+
+    headers = {
+        "User-Agent": "SeuSistemaSolar/1.0 (contato@seudominio.com)"
+    }
+
+    r = requests.get(url, params=params, headers=headers, timeout=5)
+
+    if r.status_code != 200:
+        return None
+
+    data = r.json()
+    if not data:
+        return None
+
+    return {
+        "lat": float(data[0]["lat"]),
+        "lon": float(data[0]["lon"]),
+        "display_name": data[0]["display_name"]
+    }
+
+
+# ==========================
+# 3) Endpoint principal: CEP → Endereço → Coordenadas → Irradiação
+# ==========================
+
+@require_GET
+def irradiacao_por_cep(request):
+    cep = request.GET.get("cep", "").replace("-", "").strip()
+
+    if len(cep) != 8 or not cep.isdigit():
+        return JsonResponse({"error": "CEP inválido"}, status=400)
+
+    # 1) Buscar endereço
+    endereco_data = buscar_endereco_por_cep(cep)
+    if not endereco_data:
+        return JsonResponse({"error": "CEP não encontrado"}, status=404)
+
+    # Monta string completa de endereço
+    endereco_str = f"{endereco_data['logradouro']}, {endereco_data['bairro']}, {endereco_data['localidade']} - {endereco_data['uf']}, Brasil"
+
+    # 2) Geocodificar
+    coords = geocodificar_endereco(endereco_str)
+    if not coords:
+        return JsonResponse({"error": "Não foi possível obter coordenadas do endereço"}, status=500)
+
+    lat = coords["lat"]
+    lon = coords["lon"]
+
+    # 3) Chama sua função existente
+    irradiacao = irradiacao_mais_proxima(lat, lon)
+
+    return JsonResponse({
+        "cep": cep,
+        "endereco": endereco_str,
+        "lat": lat,
+        "lon": lon,
+        "irradiacao": irradiacao
+    }, json_dumps_params={'ensure_ascii': False})
