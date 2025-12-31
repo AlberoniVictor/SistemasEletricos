@@ -15,6 +15,7 @@ class ClienteAdmin(admin.ModelAdmin):
     list_per_page = 20
     search_fields = ('nome',)
     inlines = [ArquivosClientesInline]
+    readonly_fields = ('cadastro',)
     fieldsets = (
         ('Cliente',{
             'fields':(
