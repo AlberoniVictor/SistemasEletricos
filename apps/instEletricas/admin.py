@@ -1,5 +1,5 @@
 from django.contrib import admin
-from apps.instEletricas.models import EquilibrioFases,Eletrodutos,Protecao,Condutores,Demandas,Local,Ambientes,CargasTUG,CargasILUM,CargasTUE,Circuitos
+from apps.instEletricas.models import EquilibrioFases,Eletrodutos,Protecao,Condutores,Demandas,Local,Ambientes,CargasTUG,CargasILUM,CargasTUE,Circuitos,ArquivosInstEletricas
 
 class AmbientesInline(admin.TabularInline):
     model = Ambientes
@@ -13,13 +13,19 @@ class CargasTUEInline(admin.TabularInline):
     verbose_name='Carga de Tomada de Uso Específico'
     verbose_name_plural='Cargas de Tomada de Uso Específico'
 
+class ArquivosInstEletricasInline(admin.TabularInline):
+    model = ArquivosInstEletricas
+    extra = 0
+    verbose_name_plural = 'Arquivos dos Locais'
+    verbose_name = 'Arquivo do Local'
+
 @admin.register(Local)
 class LocalAdmin(admin.ModelAdmin):
     list_display=('id','cliente','local','cidade','uf','cep','rede')
     list_display_links=('id','cliente','local')
     list_per_page=20
     search_fields=('id','cliente','local','cep')
-    inlines = [AmbientesInline]
+    inlines = [AmbientesInline,ArquivosInstEletricasInline]
 
     fieldsets = (
         ('Local',{
@@ -27,10 +33,18 @@ class LocalAdmin(admin.ModelAdmin):
                 'cliente',('local','rede',),
                 ('logradouro','numero','bairro'),
                 ('cidade','uf','cep'),
+                'etapa',
 
             ),
         }),
     )
+
+    def save_model(self, request, obj, form, change):
+        # Atualiza os campos vindos da API
+        obj.endereco_cep_local()
+
+        # Salva normalmente
+        super().save_model(request, obj, form, change)
 
 @admin.register(Ambientes)
 class AmbientesAdmin(admin.ModelAdmin):

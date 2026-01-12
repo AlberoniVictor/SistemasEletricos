@@ -2,7 +2,9 @@ from django.db import models
 import math
 from apps.cliente.models import Cliente
 from apps.irradiacao.views import buscar_endereco_por_cep
-
+from django.core.validators import FileExtensionValidator
+from apps.cliente.validators import validate_file_mimetype,validate_file_size
+from datetime import datetime
 
 class Local(models.Model):
     '''Modelo para os locais de instalação do cliente'''
@@ -33,14 +35,14 @@ class Local(models.Model):
     cliente = models.ForeignKey(Cliente,on_delete=models.CASCADE,verbose_name='Cliente',related_name='cliente_local', db_index=True)
     local = models.CharField(verbose_name='Identificação do local',max_length=100, db_index=True)
     cep = models.CharField(max_length=8,blank=False,null=False,verbose_name='CEP',default='-', db_index=True)
-    logradouro = models.CharField(max_length=100,blank=False,null=False,verbose_name='Logradouro')
-    numero = models.CharField(max_length=100,blank=False,null=False,verbose_name='Numero')
-    bairro = models.CharField(max_length=100,blank=False,null=False,verbose_name='Bairro')
-    cidade = models.CharField(max_length=100,blank=False,null=False,verbose_name='Cidade')
-    uf = models.CharField(max_length=2,blank=False,null=False,verbose_name='Estado')
+    logradouro = models.CharField(max_length=100,blank=True,null=False,verbose_name='Logradouro')
+    numero = models.CharField(max_length=100,blank=True,null=False,verbose_name='Numero')
+    bairro = models.CharField(max_length=100,blank=True,null=False,verbose_name='Bairro')
+    cidade = models.CharField(max_length=100,blank=True,null=False,verbose_name='Cidade')
+    uf = models.CharField(max_length=2,blank=True,null=False,verbose_name='Estado')
     rede = models.CharField(verbose_name='Alimentação Concessionária',choices=TENSAO,default='1',max_length=1)
     tipo_rede = models.CharField(verbose_name='Tipo de Rede',max_length=1,blank=False,null=False,choices=TIPO_REDE,default='N')
-    status = models.BooleanField(default=True,verbose_name='Etapa do Projeto',choices=STATUS_PROJETO,max_length=1,default='1')
+    etapa = models.CharField(verbose_name='Etapa do Projeto',choices=STATUS_PROJETO,max_length=1,default='1')
     cadastro = models.DateTimeField(auto_now_add=True,verbose_name='Data de Cadastro')
 
     class Meta:
@@ -66,6 +68,10 @@ class Local(models.Model):
             self.uf = endereco.get("uf", "")
 
         return True
+    
+    @property
+    def endereco(self):
+        return f'{self.logradouro}, {self.numero} - {self.bairro}, {self.cidade} - {self.uf}, CEP: {self.cep}'
 
 class Ambientes(models.Model):
     '''Modelo para os ambientes do local de instalação'''
@@ -936,3 +942,41 @@ class EquilibrioFases(models.Model):
                 menor['total'] += I
                 menor['itens'].append(nome_ckt)
         return FASES
+
+def get_upload_path(instance,filename):
+    data_nome = datetime.now().strftime("%Y-%m-%d")
+    filename = f"{instance.cliente.cliente} - {instance.tipo} {data_nome} - {filename}"
+    return f"uploads/InstEletricas/{instance.cliente.cliente.tipo}/{instance.cliente.cliente}/Local-[{instance.cliente.local}]/{instance.tipo}/{data_nome}/{filename}"
+
+class ArquivosInstEletricas(models.Model):
+    TIPO = (
+        ('Conta de Luz', 'Conta de Luz'),
+        ('Diagrama Unifilar', 'Diagrama Unifilar'),
+        ('Diagrama Trifilar', 'Diagrama Trifilar'),
+        ('Planta do Imóvel', 'Planta do Imóvel'),
+        ('ART do Projeto', 'ART do Projeto'),
+        ('Memorial Descritivo', 'Memorial Descritivo'),
+        ('Procuração', 'Procuração'),
+        ('Documento do Cliente', 'Documento do Cliente'),
+        ('Formulário de Solicitação', 'Formulário de Solicitação'),
+        ('Proposta', 'Proposta'),
+        ('Contrato Assinado', 'Contrato Assinado'),
+        ('Orçamento', 'Orçamento'),
+        ('Fotos', 'Fotos'),
+        ('Outros', 'Outros'),
+    )
+    tipo = models.CharField(max_length=100,choices=TIPO,verbose_name='Tipo de Arquivo',default='Conta de Luz')
+    cliente = models.ForeignKey(Local, on_delete=models.CASCADE,related_name='local_files')
+    arquivo = models.FileField(
+        upload_to=get_upload_path,
+        validators=[
+            FileExtensionValidator(allowed_extensions=['pdf', 'jpg', 'jpeg', 'png', 'gif','dwg']),
+            validate_file_mimetype,
+            validate_file_size
+        ],
+        verbose_name="Arquivos"
+    )
+    data_upload = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.tipo} - {self.cliente.cliente.nome} - [Local: {self.cliente.local}] - [Upload: {self.data_upload.date()}]"

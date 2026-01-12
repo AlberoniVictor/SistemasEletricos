@@ -83,7 +83,7 @@ def get_upload_path(instance, filename):
     ext = filename.split('.')[-1]
     new_name = f"{cliente_slug}-{tipo_slug}-{data}.{ext}"
 
-    return f"uploads/{instance.cliente.id}/{tipo_slug}/{data}/{new_name}"
+    return f"uploads/clientes/{instance.cliente.id}/{tipo_slug}/{data}/{new_name}"
 
 class ArquivosClientes(models.Model):
     TIPO = (

@@ -44,7 +44,7 @@ INSTALLED_APPS = [
     #APPS CRIADOS
     'apps.irradiacao',
     'apps.instEletricas',
-    #'apps.solar',
+    'apps.solar',
     'apps.cliente',
 
     #APPS INSTALADOS
@@ -70,7 +70,7 @@ ROOT_URLCONF = 'setup.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR)],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -148,3 +148,11 @@ MEDIA_URL = '/media/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+CORS_ALLOWED_ORIGINS = [
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+]
+
+CORS_ALLOW_ALL_ORIGINS = True

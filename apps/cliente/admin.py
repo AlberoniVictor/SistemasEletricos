@@ -28,3 +28,10 @@ class ClienteAdmin(admin.ModelAdmin):
             ),
         }),
     )
+
+    def save_model(self, request, obj, form, change):
+        # Atualiza os campos vindos da API
+        obj.atualizar_endereco_por_cep()
+
+        # Salva normalmente
+        super().save_model(request, obj, form, change)
